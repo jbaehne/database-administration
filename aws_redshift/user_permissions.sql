@@ -1,48 +1,30 @@
---quick look at who the super users are 
-select 
-   usesysid
-  ,usename
-  ,usesuper
-  ,nvl(groname,'default') as group_name
-from pg_user u
-left join pg_group g 
-  on ','||array_to_string(grolist,',')||',' like '%,'||cast(usesysid as varchar(10))||',%'
-order by 
-   nvl(groname,'default')
-  ,usesuper
-  ,usename;
+/*-------------------------------------------------------------------------------------
+Title: List User Permissions
+Decription: This lists out all of the DB objects and the permission set for each object
+-------------------------------------------------------------------------------------*/
 
---indepth view of privs by table by group
-SELECT *
-FROM information_schema.table_privileges;
-
-
------------------// look at user's specific privs. \\-------------------------
-
-SELECT
-    u.usename,
-    s.schemaname,
-    has_schema_privilege(u.usename,s.schemaname,'create') AS user_has_select_permission,
-    has_schema_privilege(u.usename,s.schemaname,'usage') AS user_has_usage_permission
-FROM pg_user u
-CROSS JOIN
+SELECT * 
+FROM 
     (
-        SELECT DISTINCT schemaname 
-        FROM pg_tables
-    ) s
-WHERE u.usename = 'myUserName'
-  AND s.schemaname = 'mySchemaName';
-
----quick view of the privs by table by user
-SELECT
-    u.usename,
-    t.schemaname||'.'||t.tablename,
-    has_table_privilege(u.usename,t.tablename,'select') AS user_has_select_permission,
-    has_table_privilege(u.usename,t.tablename,'insert') AS user_has_insert_permission,
-    has_table_privilege(u.usename,t.tablename,'update') AS user_has_update_permission,
-    has_table_privilege(u.usename,t.tablename,'delete') AS user_has_delete_permission,
-    has_table_privilege(u.usename,t.tablename,'references') AS user_has_references_permission
-FROM pg_user         u
-CROSS JOIN pg_tables t
-WHERE u.usename = 'myUserName'
-  AND t.tablename = 'myTableName';
+    SELECT 
+         schemaname
+        ,objectname
+        ,usename
+        ,HAS_TABLE_PRIVILEGE(usrs.usename, fullobj, 'select') AND has_schema_privilege(usrs.usename, schemaname, 'usage')  AS sel
+        ,HAS_TABLE_PRIVILEGE(usrs.usename, fullobj, 'insert') AND has_schema_privilege(usrs.usename, schemaname, 'usage')  AS ins
+        ,HAS_TABLE_PRIVILEGE(usrs.usename, fullobj, 'update') AND has_schema_privilege(usrs.usename, schemaname, 'usage')  AS upd
+        ,HAS_TABLE_PRIVILEGE(usrs.usename, fullobj, 'delete') AND has_schema_privilege(usrs.usename, schemaname, 'usage')  AS del
+        ,HAS_TABLE_PRIVILEGE(usrs.usename, fullobj, 'references') AND has_schema_privilege(usrs.usename, schemaname, 'usage')  AS ref
+    FROM
+        (
+        SELECT schemaname, 't' AS obj_type, tablename AS objectname, schemaname + '.' + tablename AS fullobj FROM pg_tables
+        WHERE schemaname not in ('pg_internal')
+        UNION
+        SELECT schemaname, 'v' AS obj_type, viewname AS objectname, schemaname + '.' + viewname AS fullobj FROM pg_views
+        WHERE schemaname not in ('pg_internal')
+        ) AS objs
+        ,(SELECT * FROM pg_user) AS usrs
+    ORDER BY fullobj
+    )
+WHERE (sel = true or ins = true or upd = true or del = true or ref = true)
+ORDER BY usename;
