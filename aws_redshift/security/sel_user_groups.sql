@@ -1,7 +1,7 @@
-/*
+/*=========================================================================================
 Title: User Privs sampler
 Description: This is like a db privs deep dive, bunch of different views of the user privs
-*/
+=========================================================================================*/
 
 --quick look at who the super users are
 select 
@@ -22,7 +22,7 @@ order by
 SELECT *
 FROM information_schema.table_privileges
 WHERE table_schema = 'etl'
-AND table_name = 'test_monkey_butt';
+    AND table_name = 'test_user'; --<<==== Put your test user here
 
 -------Schmea ACL
 select
